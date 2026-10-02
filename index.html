@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#070b12" />
+  <title>NEON RIFT — Animation, Physicality & Impact v13</title>
+  <style>
+    :root {
+      --bg: #080b0f;
+      --panel: rgba(9, 16, 28, 0.82);
+      --panel-2: rgba(15, 25, 42, 0.88);
+      --line: rgba(104, 226, 255, 0.22);
+      --cyan: #67e8ff;
+      --cyan-2: #1dc8f5;
+      --lime: #a6ff7b;
+      --amber: #ffd166;
+      --red: #ff4d6d;
+      --violet: #b88cff;
+      --text: #eaf7ff;
+      --muted: #8ca4b8;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; }
+    button { font: inherit; }
+
+    #game-shell { position: fixed; inset: 0; background:
+      radial-gradient(circle at 50% 15%, rgba(30, 113, 145, .17), transparent 38%),
+      linear-gradient(180deg, #070a0d 0%, #0a0d11 100%);
+    }
+
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+    #vignette {
+      pointer-events: none; position: absolute; inset: 0; z-index: 2;
+      box-shadow: inset 0 0 120px rgba(0,0,0,.68), inset 0 0 260px rgba(0,0,0,.22);
+      background: radial-gradient(circle at center, transparent 38%, rgba(0,0,0,.18) 75%, rgba(0,0,0,.45) 100%);
+    }
+
+    #hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; padding: clamp(12px, 2vw, 24px); }
+    .hud-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .panel {
+      background: linear-gradient(180deg, rgba(12,22,38,.86), rgba(6,11,20,.78));
+      border: 1px solid var(--line); border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.03);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+
+    #stats { width: min(440px, 56vw); padding: 14px 16px 13px; }
+    .stat-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom: 9px; }
+    .brand { font-weight: 900; letter-spacing: .16em; font-size: 13px; color: var(--cyan); text-shadow: 0 0 18px rgba(103,232,255,.35); }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .chip { padding: 5px 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; background: rgba(255,255,255,.035); font-size: 11px; color: #c9d9e5; }
+    .chip b { color: #fff; }
+    .bar-label { display:flex; justify-content:space-between; font-size:12px; margin: 6px 0 5px; color:#cfe7f6; }
+    .bar { height: 9px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.05); }
+    .fill { height:100%; width:100%; transform-origin:left center; transition: transform .12s linear; }
+    #hp-fill { background: linear-gradient(90deg, #ff4d6d, #ff8e66); box-shadow: 0 0 18px rgba(255,77,109,.35); }
+    #xp-fill { background: linear-gradient(90deg, #54dfff, #8dffda); box-shadow: 0 0 18px rgba(84,223,255,.28); }
+    #dash-fill { background: linear-gradient(90deg, #b88cff, #6ce7ff); box-shadow: 0 0 18px rgba(184,140,255,.28); }
+    #flow-fill { background: linear-gradient(90deg, #ff4d6d 0%, #ffd166 48%, #67e8ff 100%); box-shadow: 0 0 20px rgba(255,209,102,.28); }
+    #flow-state { transition: .15s ease; }
+    #flow-state.flow-sss { color:#fff3a0; text-shadow:0 0 8px #ffd166, 0 0 18px #67e8ff; animation:flowPulse .48s ease-in-out infinite alternate; }
+    #rage-fill { background: linear-gradient(90deg, #5a0717 0%, #ff3152 55%, #ff9a5c 100%); box-shadow: 0 0 18px rgba(255,49,82,.22); }
+    #rage-state { color:#ff9eb0; transition:.12s ease; }
+    #rage-state.overdrive { color:#fff1f3; text-shadow:0 0 10px rgba(255,49,82,.8); animation:ragePulse .32s ease-in-out infinite alternate; }
+    .upgrade.synergy { border-color:rgba(255,87,137,.34); background:linear-gradient(160deg,rgba(46,17,39,.96),rgba(7,13,24,.96)); }
+    .upgrade.synergy .tag { color:#ff7aa4; }
+    @keyframes flowPulse { from { transform:scale(1); } to { transform:scale(1.12); } }
+    @keyframes ragePulse { from { transform:scale(1); opacity:.88; } to { transform:scale(1.07); opacity:1; } }
+
+    #right-panel { padding: 12px 14px; min-width: 190px; text-align:right; }
+    #score { font-size: clamp(24px, 3.4vw, 42px); font-weight: 900; line-height: .95; letter-spacing: -.04em; }
+    #score-label { color: var(--muted); font-size: 10px; letter-spacing:.18em; text-transform:uppercase; margin-top:6px; }
+    .meta { margin-top: 10px; display:grid; grid-template-columns:auto auto; gap:5px 12px; font-size:11px; color:var(--muted); }
+    .meta strong { color:#eefaff; font-weight:700; }
+
+    #hint { position:absolute; left:50%; bottom: 18px; transform:translateX(-50%); padding: 9px 13px; font-size:11px; color:#a9bfd0; letter-spacing:.02em; white-space:nowrap; opacity:.95; }
+    #hint kbd { display:inline-grid; place-items:center; min-width:22px; height:20px; padding:0 5px; margin:0 2px; border-radius:5px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); color:#effbff; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: inset 0 -2px 0 rgba(0,0,0,.14); }
+
+    #center-message { position:absolute; inset:0; display:grid; place-items:center; z-index:4; pointer-events:none; }
+    .message { text-align:center; opacity:0; transform:translateY(8px) scale(.98); transition: .24s ease; text-shadow:0 0 24px rgba(103,232,255,.32); }
+    .message.show { opacity:1; transform:none; }
+    .message h2 { margin:0; font-size: clamp(24px, 5vw, 54px); letter-spacing:.08em; font-style:italic; }
+    .message p { margin:8px 0 0; color:#9fc1d4; font-size:12px; letter-spacing:.18em; text-transform:uppercase; }
+
+    .overlay { position:absolute; inset:0; z-index:10; display:none; place-items:center; padding:22px; background:rgba(3,6,11,.56); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+    .overlay.show { display:grid; }
+    .modal { width:min(900px, 96vw); max-height:92vh; overflow:auto; padding: clamp(18px, 3vw, 30px); }
+    .modal h1,.modal h2 { margin:0; }
+    .eyebrow { color:var(--cyan); font-size:11px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; margin-bottom:8px; }
+    .modal-title { font-size:clamp(30px, 5vw, 58px); line-height:.95; letter-spacing:-.05em; }
+    .modal-copy { color:#9bb0c2; max-width:700px; line-height:1.55; margin:13px 0 18px; font-size:14px; }
+    .controls-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin: 18px 0 22px; }
+    .control-card { padding:12px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); border-radius:10px; color:#bcd0de; font-size:12px; }
+    .control-card b { color:#fff; display:block; margin-bottom:4px; }
+    .primary { pointer-events:auto; border:0; color:#061019; font-weight:900; letter-spacing:.08em; text-transform:uppercase; background:linear-gradient(90deg,#67e8ff,#a6ffcf); padding:13px 18px; border-radius:10px; cursor:pointer; box-shadow:0 12px 34px rgba(72,209,255,.22); transition:.16s ease; }
+    .primary:hover { transform:translateY(-2px); filter:brightness(1.05); }
+    .secondary { pointer-events:auto; border:1px solid rgba(255,255,255,.12); color:#d7e8f3; background:rgba(255,255,255,.055); padding:10px 13px; border-radius:10px; cursor:pointer; }
+
+    .upgrade-modal { width:min(1220px,97vw); }
+    #upgrade-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px; margin-top:16px; }
+    .upgrade { position:relative; overflow:hidden; text-align:left; padding:16px; min-height:205px; border-radius:13px; border:1px solid rgba(103,232,255,.18); background:linear-gradient(160deg,rgba(20,35,55,.96),rgba(7,13,24,.96)); color:#eaf7ff; cursor:default; transition:.16s ease; pointer-events:auto; display:flex; flex-direction:column; }
+    .upgrade:hover { transform:translateY(-3px); border-color:rgba(103,232,255,.42); box-shadow:0 15px 36px rgba(0,0,0,.28); }
+    .upgrade:before { content:""; position:absolute; inset:auto -35% -70% auto; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle,rgba(103,232,255,.08),transparent 70%); pointer-events:none; }
+    .upgrade-topline { display:flex; justify-content:space-between; gap:8px; align-items:center; min-height:18px; }
+    .upgrade .tag { color:var(--cyan); font-size:9px; font-weight:800; letter-spacing:.11em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .upgrade .level { color:#728ca0; font-size:9px; white-space:nowrap; }
+    .upgrade h3 { margin:12px 0 9px; font-size:18px; line-height:1.05; letter-spacing:-.02em; }
+    .upgrade-main { color:#eaf7ff; font:900 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; min-height:36px; }
+    .upgrade-main .verb { color:#83ddeb; font-size:9px; letter-spacing:.10em; display:block; margin-bottom:3px; }
+    .upgrade .explain { color:#91a8ba; line-height:1.35; font-size:11px; margin:8px 0 0; min-height:30px; }
+    .upgrade .requirement { color:#b9a7da; font-size:9px; line-height:1.3; margin:6px 0 0; }
+    .upgrade.common { border-color:rgba(103,232,255,.18); }
+    .upgrade.uncommon { border-color:rgba(126,255,177,.28); }
+    .upgrade.rare { border-color:rgba(145,128,255,.38); }
+    .upgrade.legendary { border-color:rgba(255,199,82,.50); background:linear-gradient(160deg,rgba(48,36,14,.96),rgba(9,13,22,.97)); }
+    .upgrade.synergy { border-color:rgba(255,87,137,.40); }
+    .upgrade.legendary .tag { color:#ffd166; }
+    .upgrade.rare .tag { color:#bca8ff; }
+    .upgrade.uncommon .tag { color:#a6ffb9; }
+    .rift-chip { border-color:rgba(196,137,255,.22); color:#e7d4ff; transition:transform .12s ease, border-color .12s ease; }
+    .rift-chip.rift-pulse { transform:scale(1.08); border-color:rgba(224,188,255,.72); }
+    .shop-toolbar { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin:12px 0 4px; }
+    .shop-wallet { display:flex; align-items:baseline; gap:8px; padding:9px 12px; border-radius:10px; border:1px solid rgba(189,133,255,.22); background:rgba(111,62,154,.10); }
+    .shop-wallet span { color:#9aacc0; font-size:10px; letter-spacing:.14em; text-transform:uppercase; }
+    .shop-wallet strong { color:#ead8ff; font-size:20px; }
+    .shop-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .shop-note { min-height:18px; margin:8px 0 0; color:#9bb0c2; font-size:11px; }
+    .shop-note.warn { color:#ffbf8a; }
+    .build-summary { margin-top:8px; color:#7f97aa; font:700 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.02em; }
+    .upgrade.unaffordable { opacity:.74; }
+    .price-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:auto; padding-top:11px; border-top:1px solid rgba(255,255,255,.06); }
+    .price { color:#e5d2ff; font-weight:900; font-size:13px; }
+    .price.need { color:#ffac8d; font-size:10px; font-weight:700; }
+    .buy-btn { pointer-events:auto; border:1px solid rgba(103,232,255,.24); color:#071117; background:linear-gradient(90deg,#78e6f5,#b6f0dc); padding:9px 12px; border-radius:8px; font-weight:900; letter-spacing:.06em; cursor:pointer; }
+    .buy-btn:disabled { cursor:not-allowed; color:#82909a; background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.08); }
+    .secondary:disabled { opacity:.45; cursor:not-allowed; }
+
+
+    #death-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:18px 0 22px; }
+    .death-stat { padding:13px; border-radius:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
+    .death-stat span { display:block; color:#7892a7; font-size:10px; text-transform:uppercase; letter-spacing:.14em; }
+    .death-stat strong { display:block; margin-top:4px; font-size:22px; }
+
+    #boss-bar { position:absolute; left:50%; top:18px; transform:translateX(-50%); width:min(560px,58vw); z-index:4; pointer-events:none; opacity:0; transition:opacity .16s ease; }
+    #boss-bar.show { opacity:1; }
+    #boss-name { display:flex; justify-content:space-between; gap:10px; margin-bottom:5px; color:#eadfff; font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; text-shadow:0 0 12px rgba(174,112,255,.35); }
+    #boss-track { height:8px; border-radius:999px; overflow:hidden; background:rgba(0,0,0,.62); border:1px solid rgba(210,170,255,.18); }
+    #boss-fill { height:100%; transform-origin:left center; background:linear-gradient(90deg,#a758d7,#ff6f74,#ffd166); transition:transform .08s linear; }
+    #run-build-recap { margin:4px 0 18px; padding:12px 14px; border-radius:10px; border:1px solid rgba(103,232,255,.10); background:rgba(255,255,255,.025); color:#9eb7c8; font:700 11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    #run-title { color:#e7f8ff; font-size:14px; letter-spacing:.10em; }
+
+    #top-actions { position:absolute; right:18px; bottom:18px; z-index:5; display:flex; gap:8px; }
+    #top-actions button { pointer-events:auto; width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.09); background:rgba(5,10,18,.72); color:#c6d9e6; cursor:pointer; backdrop-filter:blur(8px); }
+
+    @media (max-width: 1120px) {
+      #upgrade-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .upgrade { min-height:178px; }
+    }
+    @media (max-width: 720px) {
+      #stats { width: calc(100vw - 28px); }
+      #right-panel { position:absolute; right:14px; top:150px; min-width:145px; }
+      .controls-grid { grid-template-columns:repeat(2,1fr); }
+      .upgrade { min-height:165px; }
+      #hint { display:none; }
+      .meta { display:none; }
+    }
+    @media (max-width: 560px) {
+      #upgrade-cards { grid-template-columns:1fr; }
+      .upgrade { min-height:150px; }
+    }
+  </style>
+</head>
+<body>
+<div id="game-shell">
+  <canvas id="game" aria-label="NEON RIFT game canvas"></canvas>
+  <div id="vignette"></div>
+
+  <div id="hud">
+    <div class="hud-row">
+      <div id="stats" class="panel">
+        <div class="stat-top">
+          <div class="brand">NEON RIFT // RUN</div>
+          <div class="chips">
+            <div class="chip">LV <b id="level">1</b></div>
+            <div class="chip">WAVE <b id="wave">1</b></div>
+            <div class="chip">KILLS <b id="kills">0</b></div>
+            <div id="rift-chip" class="chip rift-chip">◆ RIFT <b id="rift-shards">0</b></div>
+          </div>
+        </div>
+        <div class="bar-label"><span>HP</span><b><span id="hp">100</span>/<span id="hp-max">100</span></b></div>
+        <div class="bar"><div id="hp-fill" class="fill"></div></div>
+        <div class="bar-label"><span>XP</span><b><span id="xp">0</span>/<span id="xp-next">8</span></b></div>
+        <div class="bar"><div id="xp-fill" class="fill"></div></div>
+        <div class="bar-label"><span>DASH</span><b id="dash-state">READY</b></div>
+        <div class="bar"><div id="dash-fill" class="fill"></div></div>
+        <div class="bar-label"><span>ADRENALINE / STYLE</span><b id="flow-state">D · 0%</b></div>
+        <div class="bar"><div id="flow-fill" class="fill" style="transform:scaleX(0)"></div></div>
+        <div class="bar-label"><span>CYBER-RAGE</span><b id="rage-state">0%</b></div>
+        <div class="bar"><div id="rage-fill" class="fill" style="transform:scaleX(0)"></div></div>
+      </div>
+
+      <div id="right-panel" class="panel">
+        <div id="score">0</div>
+        <div id="score-label">combat score</div>
+        <div class="meta">
+          <span>DMG</span><strong id="dmg">24</strong>
+          <span>FIRE RATE</span><strong id="firerate">7.0/s</strong>
+          <span>CRIT</span><strong id="crit">5%</strong>
+          <span>KINETIC</span><strong id="kinetic">1.00×</strong>
+          <span>DEFLECT</span><strong id="deflect-stat">90ms</strong>
+          <span>DEFLECT MODE</span><strong id="deflect-mode">UNSTABLE</strong>
+          <span>VACUUM</span><strong id="vacuum-stat">120</strong>
+          <span>MULTI</span><strong id="multi-stat">1</strong>
+          <span>PIERCE</span><strong id="pierce-stat">0</strong>
+          <span>STABILITY</span><strong id="accuracy-stat">100%</strong>
+          <span>CORE</span><strong id="core-stat">BASE</strong>
+        </div>
+      </div>
+    </div>
+    <div id="hint" class="panel"><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> di chuyển · <kbd>LMB</kbd> bắn · <kbd>RMB</kbd> Katana / Deflect · <kbd>Space</kbd>/<kbd>Shift</kbd> dash · <kbd>P</kbd> pause</div>
+  </div>
+
+  <div id="center-message"><div id="wave-message" class="message"><h2>WAVE 1</h2><p>breach detected</p></div></div>
+  <div id="boss-bar"><div id="boss-name"><span id="boss-title">BREACH ENTITY</span><span id="boss-phase">PHASE I</span></div><div id="boss-track"><div id="boss-fill"></div></div></div>
+  <div id="top-actions"><button id="mute-btn" title="Âm thanh">♪</button><button id="pause-btn" title="Tạm dừng">Ⅱ</button></div>
+
+  <div id="start-overlay" class="overlay show">
+    <div class="modal panel">
+      <div class="eyebrow">Browser prototype · original visual design</div>
+      <h1 class="modal-title">NEON<br>RIFT</h1>
+      <p class="modal-copy">Roguelite top-down shooter với firearm-first combat: directional skill Deflect, accuracy/recoil, gun stagger, encounter pacing, wave milestones, readable telegraphs, 4-card build drafting và firearm-first combat. Core Stability được giữ nguyên.</p>
+      <div class="controls-grid">
+        <div class="control-card"><b>DI CHUYỂN</b>WASD hoặc phím mũi tên</div>
+        <div class="control-card"><b>NGẮM / COMBAT</b>LMB bắn · RMB Katana / phản đạn</div>
+        <div class="control-card"><b>DASH</b>Space hoặc Shift</div>
+        <div class="control-card"><b>ROGUELIKE</b>Kill → XP + Rift Shards → Level draft → BUY / REROLL / SAVE</div>
+      </div>
+      <button id="start-btn" class="primary">BẮT ĐẦU RUN</button>
+    </div>
+  </div>
+
+  <div id="upgrade-overlay" class="overlay">
+    <div class="modal panel upgrade-modal">
+      <div class="eyebrow">Rift upgrade terminal · 4-choice draft</div>
+      <h2 class="modal-title">UPGRADE TERMINAL</h2>
+      <p class="modal-copy">Chọn tối đa 1 trong 4 card. BUY nếu hợp build, REROLL nếu cần, hoặc SAVE để giữ Rift Shards cho Wave sau.</p>
+      <div class="shop-toolbar">
+        <div class="shop-wallet"><span>Rift Shards</span><strong>◆ <span id="shop-rift">0</span></strong></div>
+        <div class="shop-actions">
+          <button id="reroll-btn" class="secondary">REROLL · 15</button>
+          <button id="skip-upgrade-btn" class="secondary">SAVE / CONTINUE</button>
+        </div>
+      </div>
+      <div id="build-summary" class="build-summary"></div>
+      <div id="shop-note" class="shop-note"></div>
+      <div id="upgrade-cards"></div>
+    </div>
+  </div>
+
+  <div id="pause-overlay" class="overlay">
+    <div class="modal panel" style="max-width:560px;text-align:center">
+      <div class="eyebrow">Run suspended</div>
+      <h2 class="modal-title">PAUSED</h2>
+      <p class="modal-copy" style="margin-left:auto;margin-right:auto">Nhấn <b>P</b> hoặc nút bên dưới để tiếp tục.</p>
+      <button id="resume-btn" class="primary">TIẾP TỤC</button>
+    </div>
+  </div>
+
+  <div id="death-overlay" class="overlay">
+    <div class="modal panel" style="max-width:600px">
+      <div class="eyebrow">Signal lost</div>
+      <h2 class="modal-title">RUN ENDED</h2>
+      <p class="modal-copy">Bạn đã bị tràn ngập. Build tiếp theo có thể mạnh hơn nhờ lựa chọn upgrade khác.</p>
+      <div id="death-stats">
+        <div class="death-stat"><span>Wave</span><strong id="final-wave">1</strong></div>
+        <div class="death-stat"><span>Level</span><strong id="final-level">1</strong></div>
+        <div class="death-stat"><span>Kills</span><strong id="final-kills">0</strong></div>
+        <div class="death-stat"><span>Time</span><strong id="final-time">0:00</strong></div>
+        <div class="death-stat"><span>Score</span><strong id="final-score">0</strong></div>
+        <div class="death-stat"><span>Core</span><strong id="final-core">BASE</strong></div>
+        <div class="death-stat"><span>Highest Style</span><strong id="final-style">D</strong></div>
+        <div class="death-stat"><span>Perfect Deflects</span><strong id="final-perfect">0</strong></div>
+        <div class="death-stat"><span>Rift Earned</span><strong id="final-rift-earned">0</strong></div>
+        <div class="death-stat"><span>Rift Spent</span><strong id="final-rift-spent">0</strong></div>
+      </div>
+      <div id="run-build-recap"><div id="run-title">BASE RUNNER</div><div id="run-build">No defining upgrades.</div></div>
+      <button id="restart-btn" class="primary">RUN AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ================================================================
+  //  NEON RIFT — Animation, Physicality & Impact v13 · single-file Canvas roguelite shooter
+  //  Không dùng asset ngoài. Toàn bộ hình/animation là procedural.
+  // ================================================================
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  // ---------- DOM cache ----------
+  const ui = {
+    hp: document.getElementById('hp'), hpMax: document.getElementById('hp-max'), hpFill: document.getElementById('hp-fill'),
+    xp: document.getElementById('xp'), xpNext: document.getElementById('xp-next'), xpFill: document.getElementById('xp-fill'),
+    dashFill: document.getElementById('dash-fill'), dashState: document.getElementById('dash-state'),
+    flowFill: document.getElementById('flow-fill'), flowState: document.getElementById('flow-state'),
+    rageFill: document.getElementById('rage-fill'), rageState: document.getElementById('rage-state'),
+    score: document.getElementById('score'), kills: document.getElementById('kills'), level: document.getElementById('level'), wave: document.getElementById('wave'),
+    dmg: document.getElementById('dmg'), fireRate: document.getElementById('firerate'), crit: document.getElementById('crit'),
+    kinetic: document.getElementById('kinetic'), deflectStat: document.getElementById('deflect-stat'), vacuumStat: document.getElementById('vacuum-stat'),
+    multiStat: document.getElementById('multi-stat'), pierceStat: document.getElementById('pierce-stat'), accuracyStat: document.getElementById('accuracy-stat'), coreStat: document.getElementById('core-stat'),
+    deflectMode: document.getElementById('deflect-mode'), riftShards: document.getElementById('rift-shards'), riftChip: document.getElementById('rift-chip'),
+    shopRift: document.getElementById('shop-rift'), rerollBtn: document.getElementById('reroll-btn'), skipUpgradeBtn: document.getElementById('skip-upgrade-btn'), shopNote: document.getElementById('shop-note'), buildSummary: document.getElementById('build-summary'),
+    startOverlay: document.getElementById('start-overlay'), upgradeOverlay: document.getElementById('upgrade-overlay'),
+    pauseOverlay: document.getElementById('pause-overlay'), deathOverlay: document.getElementById('death-overlay'),
+    upgradeCards: document.getElementById('upgrade-cards'), waveMessage: document.getElementById('wave-message'),
+    finalScore: document.getElementById('final-score'), finalKills: document.getElementById('final-kills'), finalTime: document.getElementById('final-time'),
+    finalWave: document.getElementById('final-wave'), finalLevel: document.getElementById('final-level'), finalCore: document.getElementById('final-core'), finalStyle: document.getElementById('final-style'), finalPerfect: document.getElementById('final-perfect'),
+    finalRiftEarned: document.getElementById('final-rift-earned'), finalRiftSpent: document.getElementById('final-rift-spent'), runTitle: document.getElementById('run-title'), runBuild: document.getElementById('run-build'),
+    bossBar: document.getElementById('boss-bar'), bossTitle: document.getElementById('boss-title'), bossPhase: document.getElementById('boss-phase'), bossFill: document.getElementById('boss-fill'),
+    muteBtn: document.getElementById('mute-btn')
+  };
+
+  // ---------- Math helpers ----------
+  const TAU = Math.PI * 2;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => Math.random() * (b - a) + a;
+  const randInt = (a, b) => Math.floor(rand(a, b + 1));
+  const dist2 = (ax, ay, bx, by) => { const x = ax - bx, y = ay - by; return x * x + y * y; };
+  const length = (x, y) => Math.hypot(x, y) || 1;
+  const normalize = (x, y) => { const l = length(x, y); return { x: x / l, y: y / l }; };
+  const easeOutExpo = t => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+  // Sword swing easing: explosive start, controlled follow-through.
+  const easeOutCubic = t => { t=clamp(t,0,1); return 1 - Math.pow(1 - t, 3); };
+  const angleDelta = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+
+
+  // Continuous segment-circle collision. Returns normalized hit time [0..1] or null.
+  // This prevents fast projectiles from tunnelling through small enemies on a 30 FPS frame.
+  function segmentCircleHitT(ax,ay,bx,by,cx,cy,r){
+    const dx=bx-ax,dy=by-ay,fx=ax-cx,fy=ay-cy;
+    const A=dx*dx+dy*dy;
+    if(A<=1e-9) return dist2(ax,ay,cx,cy)<=r*r ? 0 : null;
+    const B=2*(fx*dx+fy*dy),C=fx*fx+fy*fy-r*r;
+    let disc=B*B-4*A*C;
+    if(disc<0) return null;
+    disc=Math.sqrt(disc);
+    const inv=1/(2*A),t1=(-B-disc)*inv,t2=(-B+disc)*inv;
+    if(t1>=0&&t1<=1) return t1;
+    if(t2>=0&&t2<=1) return t2;
+    return null;
+  }
+
+  // ---------- Display / camera ----------
+  let W = 1280, H = 720, DPR = 1;
+  const camera = { x:0,y:0,shake:0,sx:0,sy:0,shakePhase:0,impulseX:0,impulseY:0 };
+
+  // --------------------------------------------------------------------------
+  // GRAPHICS PHASE 1 — MATERIAL & DEPTH
+  // Static visual work is cached. Gameplay hitboxes remain completely separate.
+  // Global light source points from upper-left toward the world. Actor lighting is
+  // quantized into cached directional variants so highlights stay world-consistent
+  // even while characters rotate.
+  // --------------------------------------------------------------------------
+  const GRAPHICS_DEBUG = {
+    lighting:true,shadows:true,particles:true,atmosphere:true,decals:true,
+    props:true,materials:true,floor:true,animation:true,dynamicLights:true,
+    casings:true,pseudoZ:true,hitReaction:true,environmentAnimation:true
+  };
+  const GRID_STEP = 84;
+  const GRID_TILE = GRID_STEP * 4;
+  const LIGHT_WORLD_ANGLE = -Math.PI * .75;
+  const LIGHT_STEPS = 12;
+  const SHADOW_WORLD_X = 10;
+  const SHADOW_WORLD_Y = 12;
+  let gridCacheCanvas=null, gridPattern=null, haloCanvas=null;
+  let moduleSprites=[],floorDetailSprites=[],actorSprites={},actorShadowSprites={},lightSprites={},softPuffSprite=null;
+  const VISUAL_BUDGET={casings:70,dynamicLights:20,bossDeathFx:3};
+
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.floor(innerWidth);
+    H = Math.floor(innerHeight);
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    rebuildRenderCaches();
+  }
+  addEventListener('resize', resize, { passive: true });
+  resize();
+
+  // ---------- Input: one authoritative hold-state ----------
+  // Browser focus transitions can swallow keyup. Every gameplay-modal/focus boundary
+  // therefore clears the same Set used by movement, and the next movement command
+  // must come from a fresh non-repeat keydown.
+  const DEBUG_INPUT = false;
+  const DEBUG_UPGRADES = false;
+  const DEBUG_ECONOMY = false;
+  const MOVEMENT_KEYS = new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright']);
+  const input = {
+    keys:new Set(), pointerDown:false, movementArmed:true, neutralizeMotion:false,
+    resetSerial:0, lastResetReason:'init'
+  };
+  const keys = input.keys; // Legacy alias; there is still only one Set.
+  const mouse = {
+    x:W/2,y:H/2,worldX:0,worldY:0,
+    get down(){ return input.pointerDown; },
+    set down(v){ input.pointerDown=!!v; }
+  };
+
+  function gameplayInputAllowed(){
+    return !!(state.running&&!state.paused&&!state.choosingUpgrade&&!state.dead);
+  }
+  function debugInput(reason){
+    if(DEBUG_INPUT) console.debug('[INPUT]',reason,{keys:[...input.keys],pointer:input.pointerDown,armed:input.movementArmed,serial:input.resetSerial});
+  }
+  function resetInputState(reason='manual',requireFreshPress=true){
+    input.keys.clear();
+    input.pointerDown=false;
+    input.movementArmed=!requireFreshPress;
+    input.neutralizeMotion=true;
+    input.resetSerial++;
+    input.lastResetReason=reason;
+    debugInput(reason);
+  }
+  function getMovementInput(){
+    if(!gameplayInputAllowed()||!input.movementArmed)return {x:0,y:0,moving:false};
+    let x=(input.keys.has('d')||input.keys.has('arrowright')?1:0)-(input.keys.has('a')||input.keys.has('arrowleft')?1:0);
+    let y=(input.keys.has('s')||input.keys.has('arrowdown')?1:0)-(input.keys.has('w')||input.keys.has('arrowup')?1:0);
+    if(x||y){const n=normalize(x,y);x=n.x;y=n.y;}
+    return {x,y,moving:!!(x||y)};
+  }
+
+  addEventListener('keydown',e=>{
+    const k=String(e.key||'').toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+
+    if(MOVEMENT_KEYS.has(k)){
+      if(!gameplayInputAllowed())return;
+      // A held key returning from Alt-Tab usually arrives as repeat; do not resurrect it.
+      if(!input.movementArmed&&e.repeat)return;
+      if(!e.repeat)input.movementArmed=true;
+      if(input.movementArmed)input.keys.add(k);
+      debugInput(`keydown:${k}`);
+      return;
+    }
+
+    // Action keys are edge-triggered; browser key-repeat must never retrigger Dash/Pause.
+    if(e.repeat)return;
+    if((k===' '||k==='shift')&&gameplayInputAllowed())tryDash();
+    if(k==='p'&&state.running&&!state.choosingUpgrade&&!state.dead)togglePause();
+  });
+  addEventListener('keyup',e=>{
+    const k=String(e.key||'').toLowerCase();
+    input.keys.delete(k);
+    debugInput(`keyup:${k}`);
+  });
+  canvas.addEventListener('pointermove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
+  canvas.addEventListener('pointerdown',e=>{
+    ensureAudio();
+    if(e.button===0&&gameplayInputAllowed())input.pointerDown=true;
+    if(e.button===2&&gameplayInputAllowed())meleeAttack();
+  });
+  addEventListener('pointerup',e=>{if(e.button===0)input.pointerDown=false;});
+  addEventListener('pointercancel',()=>{input.pointerDown=false;});
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  addEventListener('blur',()=>resetInputState('window-blur',true));
+  addEventListener('focus',()=>resetInputState('window-focus',true));
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden')resetInputState('visibility-hidden',true);
+  });
+
+  // ---------- Tiny WebAudio synth (no external audio files) ----------
+  let audioCtx = null;
+  let muted = false;
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function tone(type, freq, duration, gain = .03, slide = 0) {
+    if (muted) return;
+    ensureAudio();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + duration);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t + duration);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + duration);
+  }
+
+  // Short filtered-noise burst. Used for sword "air", metallic deflect and gore impact.
+  function noiseBurst(duration=.09, gain=.025, filterFreq=1200, filterType='bandpass') {
+    if (muted) return;
+    ensureAudio();
+    const frames=Math.max(1,Math.floor(audioCtx.sampleRate*duration));
+    const buffer=audioCtx.createBuffer(1,frames,audioCtx.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<frames;i++) data[i]=(Math.random()*2-1)*(1-i/frames);
+    const src=audioCtx.createBufferSource(), filter=audioCtx.createBiquadFilter(), g=audioCtx.createGain();
+    src.buffer=buffer; filter.type=filterType; filter.frequency.value=filterFreq; filter.Q.value=1.2;
+    const t=audioCtx.currentTime; g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(.0001,t+duration);
+    src.connect(filter).connect(g).connect(audioCtx.destination); src.start(t);
+  }
+  function playSlashSound(){ noiseBurst(.11,.032,1750,'bandpass'); tone('triangle',760,.075,.018,-430); }
+  function playDeflectSound(){ tone('sine',1180,.09,.045,760); tone('triangle',1820,.055,.025,-280); noiseBurst(.045,.018,3100,'highpass'); }
+  function playGlorySound(){ tone('sawtooth',92,.22,.075,-54); tone('sine',54,.28,.06,-18); noiseBurst(.18,.07,420,'lowpass'); }
+
+  // ---------- Game state ----------
+  const state = {
+    running:false,paused:false,choosingUpgrade:false,dead:false,
+    time:0,score:0,kills:0,wave:1,spawnTimer:.3,eliteTimer:28,
+    waveElapsed:0,wavePhase:'combat',waveCleanupElapsed:0,waveBankTimer:0,waveBossSpawned:false,bossAliveId:0,
+    forcedDraftRarity:'',seenEnemyTypes:new Set(),introducedThisWave:false,
+    combo:1,comboTimer:0,adrenaline:0,idleTime:0,flowActive:false,styleLevel:'D',
+    hitStop:0,pendingUpgrades:0,upgradeChoiceLocked:false,
+    gunDraftPity:0,lastUpgradeCategory:'',returnProtocolMisses:0,
+    shopRerollCount:0,currentDraftIds:[],lastDraftSignature:'',pendingPurchase:null,
+    draftHistory:[],draftSerial:0,riftPickupPulse:0,riftSkillRewardCd:0,
+    volleyResults:new Map(),procSerial:1,uiTimer:0,
+    telemetry:{riftEarned:0,riftSpent:0,rerolls:0,purchases:0,purchaseCostTotal:0,perfectDeflects:0,highestStyle:'D',gunKills:0,meleeKills:0,deflectKills:0,gloryKills:0},
+    waveTelemetry:{maxAlive:0,maxEnemyBullets:0,damageTaken:0,waveStartTime:0}
+  };
+
+  // ==========================================================================
+  // ADVANCED PLAYER STATS
+
+  // ==========================================================================
+  // ADVANCED PLAYER STATS
+  // Centralizes base stats, runtime resources and synergy flags. Legacy getters
+  // keep older v5 code/upgrades compatible while new systems use explicit names.
+  // ==========================================================================
+  class PlayerState {
+    constructor(){ this.reset(); }
+
+    reset(){
+      Object.assign(this,{
+        x:0,y:0,vx:0,vy:0,r:18,angle:0,
+        speed:300,accel:16,friction:10,
+        hp:100,maxHp:100,invuln:0,
+
+        // Firearm core.
+        shootCd:0,fireRate:7,damage:24,bulletSpeed:880,spread:.020,multishot:1,pierce:0,critMult:2,
+        projectileLife:1.25,projectileSize:4.2,weaponDamageScale:1,bulletKnockback:34,
+        precisionCrit:.05,kineticForce:1,deflectWindow:90,vacuumRange:120,
+        aimBloom:0,maxAimBloom:.105,recoilPerShot:.0085,accuracyRecovery:.24,
+        sustainedFire:0,timeSinceShot:99,shotCounter:0,accuracyChain:0,accuracyChainTimer:0,
+        gunKillTempo:0,gunKillTempoTimer:0,pointBlankRange:118,pointBlankBonus:.12,
+        weaponCore:'BASE',weaponCoreChosen:false,
+        pierceDamageRetention:.82,longRangeBonus:0,
+        perfectDeflectWindowMs:30,deflectDamageMult:2.05,perfectDeflectDamageMult:3.15,
+        deflectSpeedMult:1.30,perfectDeflectSpeedMult:1.58,perfectDeflectBonus:0,
+
+        // Upgrade-driven firearm mechanics.
+        gunMods:{
+          depletedRift:false,frangible:false,hollowPoint:false,momentumRounds:false,armorBreaker:false,
+          heatSink:false,redlineReceiver:false,burstCapacitor:false,doubleTap:false,deadeyeKernel:false,
+          surgicalShot:false,targetingLattice:false,focusChamber:false,executionRound:false,microRicochet:false,
+          splitImpact:false,shockPayload:false,cryoPayload:false,incendiaryPayload:false,tightChoke:false,
+          wideChoke:false,breachLoad:false,pelletRecycling:false,flechette:false,slamShell:false,
+          massDriver:false,siegeRound:false,railCompression:false,concussionCore:false,
+          dashChamber:false,slipstreamRounds:false,bulletstormProtocol:false,railgod:false,doomDrum:false
+        },
+        focusReady:false,bulletstormMeter:0,empoweredShots:0,shockHitCounter:0,doomDrumCounter:0,
+        volleyHitCounts:new Map(),
+        icd:{pelletRefund:0,shock:.0,predator:.0,concussion:.0},
+
+        // Roguelite / economy / movement. XP determines level; Rift Shards buy upgrades.
+        level:1,xp:0,xpNext:8,riftShards:0,
+        dashCooldown:1.05,dashCd:0,dashPower:760,dashTime:0,dashDuration:.13,dashDirX:0,dashDirY:0,trailTimer:0,
+        lastDashTime:-99,
+        recoil:0,flash:0,hurtFlash:0,
+
+        // v13 visual-only body/weapon state. Gameplay aim, collision and fire timing stay authoritative.
+        anim:{moveAngle:0,lowerAngle:0,torsoAngle:0,leanX:0,leanY:0,prevVx:0,prevVy:0,hardTurn:0,dashStretch:0,settle:0,lastStep:-1,idlePhase:0},
+        weaponAnim:{recoil:0,recoilVel:0,bolt:0,muzzleHeat:0,kickAngle:0,kickVel:0},
+
+        // Katana: lower raw DPS, stronger timing/utility.
+        meleeCd:0,meleeCooldown:.48,meleeTime:0,meleeDuration:.26,meleeDamage:50,meleeRange:108,meleeArc:2.06,
+        activeSlash:null,walkTimer:0,meleeRecoveryHitMult:.82,swingSide:1,
+
+        // Style / rage.
+        rageMeter:0,rageIdleTime:0,overdriveTime:0,overdriveDuration:6,
+        phantomCharge:0,phantomVolleyHits:new Set(),gloryHealMult:1,
+
+        // Survival / utility additions for v12. Timers are runtime-only and reset every run.
+        survivalMods:{reactiveArmor:false,emergencyBarrier:false,combatScavenger:false,magneticSurge:false},
+        reactiveArmorWindow:0,reactiveArmorCd:0,barrier:0,barrierTime:0,emergencyBarrierWave:0,
+
+        upgrades:{staticDischarge:false,phantomBlade:false,reapersGambit:false,ricochetDeflect:false,vectorDeflector:false,returnProtocol:false}
+      });
+    }
+
+    // Backward compatibility with v5-v8 names.
+    get crit(){ return this.precisionCrit; }
+    set crit(v){ this.precisionCrit=v; }
+    get magnet(){ return this.vacuumRange; }
+    set magnet(v){ this.vacuumRange=v; }
+    get overdriveActive(){ return this.overdriveTime>0; }
+    get deflectMode(){ return this.upgrades.returnProtocol?'RETURN':(this.upgrades.vectorDeflector?'VECTOR':'UNSTABLE'); }
+
+    gunFireRateMult(){
+      const overdrive=this.overdriveActive?1.45:1;
+      const tempo=1+Math.min(.16,this.gunKillTempo*.025);
+      return overdrive*tempo;
+    }
+    meleeSpeedMult(){ return this.overdriveActive?1.12:1; }
+    projectileSpeedMult(){ return this.overdriveActive?1.18:1; }
+
+    // Legacy alias used by older HUD code; firearm is now the combat backbone.
+    combatSpeedMult(){ return this.gunFireRateMult(); }
+
+    restoreDashEnergy(fraction=.10){
+      this.dashCd=Math.max(0,this.dashCd-this.dashCooldown*fraction);
+    }
+
+    addRage(amount){
+      if(this.overdriveActive && amount>0) return;
+      this.rageMeter=clamp(this.rageMeter+amount,0,100);
+      if(this.rageMeter>=100 && !this.overdriveActive) triggerOverdrive();
+    }
+  }
+
+  const player = new PlayerState();
+
+  const ARENA={minX:-2500,maxX:2500,minY:-1750,maxY:1750};
+
+  const ECONOMY={
+    enemyRewards:{chaser:[2,3],stalker:[3,4],shooter:[3,5],bruiser:[7,10],elite:[18,28],dasher:[4,6],sniper:[5,7],shield:[6,8],sentinel:[36,48],overseer:[72,92]},
+    waveScalePerWave:.010,waveRewardScaleCap:1.28,maxLoosePickups:90,mergeRadius:42,
+    rarityMultiplier:{COMMON:1,UNCOMMON:1.35,RARE:1.8,LEGENDARY:2.6,SYNERGY:2.2},
+    levelMultipliers:[1,1.20,1.45,1.75,2.10],
+    rerollCosts:[15,25,40],
+    affordabilityTarget:2,
+    rarityWeights:[
+      {maxWave:2,weights:{COMMON:.85,UNCOMMON:.15,RARE:0,LEGENDARY:0,SYNERGY:0}},
+      {maxWave:5,weights:{COMMON:.50,UNCOMMON:.35,RARE:.15,LEGENDARY:0,SYNERGY:0}},
+      {maxWave:9,weights:{COMMON:.30,UNCOMMON:.35,RARE:.28,LEGENDARY:.07,SYNERGY:.07}},
+      {maxWave:Infinity,weights:{COMMON:.20,UNCOMMON:.30,RARE:.35,LEGENDARY:.15,SYNERGY:.12}}
+    ]
+  };
+
+  let bullets=[],enemyBullets=[],enemies=[],particles=[],shards=[],riftPickups=[],decals=[],floatTexts=[],ghosts=[],slashes=[],gibs=[],shockwaves=[],phantomBlades=[];
+  let casings=[],dynamicLights=[],bossDeathFx=[];
+  let nextId = 1;
+
+function resetGame() {
+  Object.assign(state,{
+    running:true,paused:false,choosingUpgrade:false,dead:false,
+    time:0,score:0,kills:0,wave:1,spawnTimer:.20,eliteTimer:30,
+    waveElapsed:0,wavePhase:'combat',waveCleanupElapsed:0,waveBankTimer:0,waveBossSpawned:false,bossAliveId:0,
+    forcedDraftRarity:'',seenEnemyTypes:new Set(),introducedThisWave:false,
+    combo:1,comboTimer:0,adrenaline:0,idleTime:0,flowActive:false,styleLevel:'D',
+    hitStop:0,pendingUpgrades:0,upgradeChoiceLocked:false,gunDraftPity:0,lastUpgradeCategory:'',returnProtocolMisses:0,
+    shopRerollCount:0,currentDraftIds:[],lastDraftSignature:'',pendingPurchase:null,draftHistory:[],draftSerial:0,
+    riftPickupPulse:0,riftSkillRewardCd:0,volleyResults:new Map(),procSerial:1,uiTimer:0,
+    telemetry:{riftEarned:0,riftSpent:0,rerolls:0,purchases:0,purchaseCostTotal:0,perfectDeflects:0,highestStyle:'D',gunKills:0,meleeKills:0,deflectKills:0,gloryKills:0},
+    waveTelemetry:{maxAlive:0,maxEnemyBullets:0,damageTaken:0,waveStartTime:0}
+  });
+  for(const k in upgradeLevels)delete upgradeLevels[k];
+  player.reset();
+  bullets=[];enemyBullets=[];enemies=[];particles=[];shards=[];riftPickups=[];decals=[];floatTexts=[];ghosts=[];slashes=[];gibs=[];shockwaves=[];phantomBlades=[];
+  casings=[];dynamicLights=[];bossDeathFx=[];
+  camera.x=0;camera.y=0;camera.shake=0;camera.sx=0;camera.sy=0;camera.shakePhase=0;camera.impulseX=0;camera.impulseY=0;
+  resetInputState('reset-game',true);
+  ui.deathOverlay.classList.remove('show');ui.pauseOverlay.classList.remove('show');ui.upgradeOverlay.classList.remove('show');
+  if(ui.bossBar)ui.bossBar.classList.remove('show');
+  startWave(1,true);
+  updateUI();
+}
+
+  // ---------- Enemy definitions ----------
+  const enemyDefs = {
+    chaser:   {r:16,hp:46,speed:106,color:'#ff5573',score:100,contact:16,xp:1,stagger:32},
+    stalker:  {r:14,hp:34,speed:86,color:'#ffb35c',score:140,contact:12,xp:1,stagger:28},
+    shooter:  {r:17,hp:62,speed:72,color:'#d69a55',score:210,contact:13,xp:2,stagger:42},
+    bruiser:  {r:25,hp:150,speed:62,color:'#b98cff',score:260,contact:26,xp:3,stagger:100},
+    elite:    {r:31,hp:360,speed:72,color:'#c7b866',score:850,contact:32,xp:7,stagger:165},
+    dasher:   {r:15,hp:58,speed:98,color:'#ef684d',score:205,contact:24,xp:2,stagger:44},
+    sniper:   {r:16,hp:56,speed:58,color:'#d59d58',score:265,contact:11,xp:3,stagger:46},
+    shield:   {r:22,hp:118,speed:64,color:'#78a4b8',score:300,contact:18,xp:3,stagger:78},
+    sentinel: {r:36,hp:2200,speed:56,color:'#9f70cc',score:1900,contact:34,xp:12,stagger:260,boss:'MINI'},
+    overseer: {r:44,hp:7200,speed:52,color:'#c367b5',score:4300,contact:40,xp:20,stagger:420,boss:'MAJOR'}
+  };
+
+function spawnEnemy(type,options={}) {
+  const def=enemyDefs[type];if(!def)return null;
+  const minSafe=Math.max(640,Math.max(W,H)*.58),requiredSafe=options.nearBoss?440:Math.min(700,minSafe*.90);
+  let sx=player.x,sy=player.y;
+  for(let attempt=0;attempt<10;attempt++){
+    const a=(attempt===0&&Number.isFinite(options.angle))?options.angle:rand(0,TAU);
+    const spawnRadius=options.nearBoss?rand(520,720):minSafe+rand(80,300);
+    sx=clamp(player.x+Math.cos(a)*spawnRadius,ARENA.minX+90,ARENA.maxX-90);
+    sy=clamp(player.y+Math.sin(a)*spawnRadius,ARENA.minY+90,ARENA.maxY-90);
+    if(dist2(sx,sy,player.x,player.y)>=requiredSafe*requiredSafe)break;
+  }
+  const wave=state.wave;
+  const hpScale=def.boss?1+Math.min(.50,(wave-1)*.032):1+Math.min(1.12,(wave-1)*.055);
+  const speedScale=1+Math.min(.20,(wave-1)*.010);
+  const e={
+    id:nextId++,type,
+    x:sx,y:sy,
+    vx:0,vy:0,r:def.r,hp:def.hp*hpScale,maxHp:def.hp*hpScale,speed:def.speed*speedScale,
+    color:def.color,score:def.score,contact:def.contact,xp:def.xp,
+    angle:0,hit:0,hitAngle:0,hitPower:0,age:0,shootCd:rand(.6,1.8),charge:rand(.4,1.4),orbitDir:Math.random()<.5?-1:1,
+    elite:type==='elite',boss:def.boss||'',seed:Math.random()*1000,
+    stunned:false,stunTimer:0,staggerUsed:false,staggerMeter:0,staggerThreshold:(def.stagger||48)*(1+Math.min(.28,(wave-1)*.014)),staggerResist:0,
+    burnTime:0,burnDps:0,burnTick:.25,slowTime:0,slowAmount:0,armorBreakStacks:0,armorBreakTime:0,targetingStacks:0,targetingTime:0,
+    executed:false,walkTimer:rand(0,TAU),kbx:0,kby:0,slamCd:0,executionRoundUsed:false,
+    attackState:'',attackTimer:0,lockedDirX:0,lockedDirY:0,recoverTimer:0,dashAttackTime:0,patternCd:rand(1.2,2.4),patternIndex:0,bossPhase:1,phaseSpawned:false,
+    shieldArc:type==='shield'?Math.PI*.72:0,shieldBlock:0,
+    visual:{lowerAngle:0,torsoAngle:0,hit:null,pose:0,phasePulse:0,lastStep:-1}
+  };
+  e.x=clamp(e.x,ARENA.minX+90,ARENA.maxX-90);e.y=clamp(e.y,ARENA.minY+90,ARENA.maxY-90);
+  enemies.push(e);
+  if(e.boss){state.bossAliveId=e.id;state.waveBossSpawned=true;}
+  if(['dasher','sniper','shield'].includes(type))announceEnemyType(type);
+  return e;
+}
+
+function chooseEnemyType() {
+  const plan=getWavePlan(state.wave),entries=Object.entries(plan.weights||{}).filter(([type,w])=>w>0&&enemyDefs[type]);
+  if(!entries.length)return 'chaser';
+  let total=entries.reduce((n,[,w])=>n+w,0),r=Math.random()*total;
+  for(const [type,w] of entries){r-=w;if(r<=0)return type;}
+  return entries[entries.length-1][0];
+}
+
+function getWavePlan(wave=state.wave){
+  const plans={
+    1:{name:'INTRO',duration:24,maxAlive:10,spawn:.92,weights:{chaser:.68,stalker:.32}},
+    2:{name:'PRESSURE',duration:25,maxAlive:13,spawn:.78,weights:{chaser:.62,stalker:.38}},
+    3:{name:'RANGED THREAT',duration:26,maxAlive:14,spawn:.82,weights:{chaser:.43,stalker:.25,shooter:.32}},
+    4:{name:'HEAVY PRESSURE',duration:27,maxAlive:15,spawn:.86,weights:{chaser:.30,stalker:.20,shooter:.30,bruiser:.20}},
+    5:{name:'MINI-BOSS · BULWARK SENTINEL',duration:40,maxAlive:11,spawn:1.12,weights:{chaser:.30,shooter:.35,bruiser:.20,stalker:.15},milestone:'sentinel',endOnBossDeath:true},
+    6:{name:'DASHER BREACH',duration:28,maxAlive:16,spawn:.82,weights:{chaser:.24,stalker:.17,shooter:.19,bruiser:.12,dasher:.28}},
+    7:{name:'CROSSFIRE',duration:29,maxAlive:17,spawn:.80,weights:{chaser:.18,stalker:.15,shooter:.24,bruiser:.12,dasher:.20,elite:.11}},
+    8:{name:'SNIPER SIGNAL',duration:29,maxAlive:17,spawn:.86,weights:{chaser:.14,shooter:.20,bruiser:.10,dasher:.18,sniper:.25,elite:.13}},
+    9:{name:'SHIELD LINE',duration:30,maxAlive:18,spawn:.88,weights:{chaser:.13,shooter:.18,bruiser:.13,dasher:.16,sniper:.17,shield:.16,elite:.07}},
+    10:{name:'MAJOR BREACH · RIFT OVERSEER',duration:60,maxAlive:13,spawn:1.18,weights:{chaser:.18,shooter:.20,dasher:.20,sniper:.16,shield:.14,bruiser:.12},milestone:'overseer',endOnBossDeath:true}
+  };
+  if(plans[wave])return plans[wave];
+  const pressure=Math.min(1,(wave-10)/12);
+  return {name:wave%5===0?'MASTER BREACH':'DEEP RIFT',duration:30+Math.min(8,(wave-10)*.35),maxAlive:Math.min(30,18+Math.floor((wave-10)*.65)),spawn:Math.max(.58,.86-(wave-10)*.012),weights:{chaser:.12,stalker:.09,shooter:.16,bruiser:.13,dasher:.15,sniper:.14,shield:.14,elite:.07+pressure*.05}};
+}
+
+function showCenterMessage(title,subtitle='',duration=1150){
+  const h=ui.waveMessage.querySelector('h2'),p=ui.waveMessage.querySelector('p');h.textContent=title;p.textContent=subtitle;ui.waveMessage.classList.add('show');
+  clearTimeout(showWaveMessage._t);showWaveMessage._t=setTimeout(()=>ui.waveMessage.classList.remove('show'),duration);
+}
+
+function announceEnemyType(type){
+  if(state.seenEnemyTypes.has(type))return;
+  state.seenEnemyTypes.add(type);
+  const names={dasher:'DASHER DETECTED',sniper:'SNIPER SIGNAL',shield:'SHIELD UNIT DETECTED'};
+  showCenterMessage('BREACH SIGNAL',names[type]||type.toUpperCase(),1250);
+}
+
+function startWave(wave,initial=false){
+  state.wave=wave;state.waveElapsed=0;state.waveCleanupElapsed=0;state.waveBankTimer=0;state.wavePhase='combat';state.waveBossSpawned=false;state.bossAliveId=0;state.introducedThisWave=false;
+  state.spawnTimer=initial?.12:.45;state.eliteTimer=Math.max(17,31-wave*.45);state.waveTelemetry={maxAlive:enemies.length,maxEnemyBullets:enemyBullets.length,damageTaken:0,waveStartTime:state.time};
+  const plan=getWavePlan(wave);
+  if(plan.milestone==='sentinel')spawnEnemy('sentinel');
+  else if(plan.milestone==='overseer')spawnEnemy('overseer');
+  else{
+    const opening=Math.min(plan.maxAlive,initial?6:Math.min(4+Math.floor(wave*.45),8));
+    for(let i=0;i<opening;i++)spawnEnemy(chooseEnemyType());
+  }
+  showWaveMessage();updateUI();
+}
+
+function startNextWave(){
+  startWave(state.wave+1,false);
+}
+
+function markWaveXPForBank(){
+  for(const s of shards){s.bank=true;s.life=Math.max(s.life,2.5);}
+  if(player.survivalMods.magneticSurge)pulsePickupsTowardPlayer(950,true);
+}
+
+function creditRemainingXP(){
+  if(!shards.length)return 0;
+  const amount=shards.length;shards.length=0;gainXP(amount);return amount;
+}
+
+function pulsePickupsTowardPlayer(radius=520,includeRift=true){
+  const rr=radius*radius;
+  for(const s of shards){if(dist2(s.x,s.y,player.x,player.y)<=rr)s.bank=true;}
+  if(includeRift)for(const p of riftPickups){if(dist2(p.x,p.y,player.x,player.y)<=rr)p.surge=1.1;}
+}
+
+function beginWaveBank(){
+  if(state.wavePhase==='bank'||state.wavePhase==='terminal')return;
+  state.wavePhase='bank';state.waveBankTimer=.82;r... (Còn 209 KB)
