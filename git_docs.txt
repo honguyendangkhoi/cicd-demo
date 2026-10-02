@@ -1,0 +1,42 @@
+#working directory -> staging stage:
+tạo 1 file lên git stage  thì đầu tiên phải:  
+	git init
+git status để kiểm tra trạng thái, thay đổi của file
+git add --all để all các file vào staging trước khi push lên github
+hủy add thì git reset
+git clone thì clone repository về máy
+
+git . là sẽ chỉ stage những thay đổi trong thư mục của mình đang đứng thôi 
+còn git -all là stage toàn bộ 
+
+#staging -> local repository:
+git config --global user.email "example@gmail.com"
+git config --global user.name "example"
+dùng để hiển thị user email và user name sử dụng project đó
+ngoài ra có những cách khác như --local, --system
+
+git commit = Lưu trạng thái (snapshot) hiện tại của các file đã được stage
+git commit -m : tạo snapshot với 1 message
+
+git commit -am : add lại những file đã commit trước đó
+hữu ích trong trường hợp sửa code liên tục thì vừa commit (snap) và vừa add luôn
+
+git commit --amend : --amend sẽ là commit rồi sửa message thành message của 
+mình nếu có nhu cầu
+
+git commit --amend --no-edit: Giữ nguyên message cũ 
+
+git commit --allow-empty -m "..." : ép snapshot, tránh lỗi 
+nothing to commit, working tree clean
+dùng trong trường hợp muốn deploy lại code chẳng hạn
+
+git reset HEAD~ : undo lại commit trước về working directory
+git reset --hard: reset lại file đã xóa luôn
+
+git rm ... : xóa file và thêm lại vào stage, chỉ xóa được những file đang track
+git rm -f ... : force delete, delete  toàn bộ
+git rm --cached ... : xóa file trên repo, gỡ khỏi track, giữ lại trên local 
+git rm -r ... : xóa thư mục và toàn bộ file trong đấy
+
+git log : xem log
+git log --oneline : xem những thay đổi quan trọng
