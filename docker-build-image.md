@@ -3,6 +3,7 @@ Viết Dockerfile, build và chạy với -p 8080:5000.
 Xong khi: curl localhost:8080/health trả về ok, và image dưới 200MB (gợi ý: dùng base image slim hoặc alpine).
 
 B1: chuẩn bị API
+
 **Flask**:
 
 ```
@@ -54,10 +55,49 @@ app.listen(PORT, '0.0.0.0', () => {
 EOF
 ```
 
+B1.2: Generate requirement.txt 
 
+Đối với Python:
+pip install pipreqs
+pipreqs . --force
 
+Đối với Node JS:
+npx depcheck
 
+B2: Dockerfile
 
+```
+FROM python:3.13-slim
 
-result: 
+COPY requirements.txt /app/
+COPY app.py /app/
+
+WORKDIR /app
+
+RUN pip install flask
+
+CMD ["python","app.py"]
+```
+
+B3: Docker build
+```
+docker build -f  <đường_dẫn_tới_file_dockerfile> -t <tên_image:tag> <đường_dẫn_build_context>
+
+ví dụ:
+docker build -f /home/cloud-user/api/dockerfile -t python-app:1.0 /home/cloud-user/api
+ 
+```
+
+B4: Docker run:
+```
+docker run -d -p <Port_Máy_Thật>:<Port_Bên_Trong_Container> <Tên_Image>
+
+ví dụ:
+docker run -d -p 8080:5000 python-app:1.0
+```
+
+B5: kết quả 
 <img width="661" height="190" alt="image" src="https://github.com/user-attachments/assets/2e6e9c8f-27b7-4bde-b9c3-39598469f1d7" />
+
+<img width="479" height="75" alt="image" src="https://github.com/user-attachments/assets/44f57918-8271-4d25-9568-dee44aa01405" />
+
